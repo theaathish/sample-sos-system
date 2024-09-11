@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOS Alerts Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      transition: background-color 0.5s, color 0.5s;
+    }
+    #map {
+      height: 100vh;
+      width: 60%;
+    }
+    #sos-list {
+      width: 40%;
+      padding: 20px;
+      background-color: #f4f4f4;
+      overflow-y: auto;
+      transition: background-color 0.5s, color 0.5s;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #e6e6e6;
+      cursor: pointer;
+      transition: background-color 0.5s;
+    }
+    li:hover {
+      background-color: #ccc;
+    }
+    .sos-alert {
+      background-color: red;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="sos-list">
+    <h2>SOS Alerts</h2>
+    <ul id="alerts"></ul>
+  </div>
+
+  <audio id="alarm-sound" src="alarm.mp3" preload="auto"></audio>
+
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    var map = L.map('map').setView([0, 0], 2); // Initial map view
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    var markers = [];
+    var alarmSound = document.getElementById('alarm-sound');
+
+    // Function to add a marker for an SOS alert
+    function addMarker(latitude, longitude, index) {
+      var marker = L.marker([latitude, longitude]).addTo(map)
+        .bindPopup('SOS #' + (index + 1) + ': Latitude ' + latitude + ', Longitude ' + longitude);
+      markers.push(marker);
+    }
+
+    // Function to add an SOS to the alert list
+    function addToAlertList(alert, index) {
+      const alertList = document.getElementById('alerts');
+      const listItem = document.createElement('li');
+      listItem.classList.add('sos-alert');
+      listItem.innerHTML = `SOS #${index + 1}: Latitude ${alert.latitude}, Longitude ${alert.longitude}<br>Time: ${new Date(alert.timestamp).toLocaleString()}`;
+      listItem.onclick = () => {
+        map.setView([alert.latitude, alert.longitude], 13);
+      };
+      alertList.appendChild(listItem);
+    }
+
+    // Function to trigger the alarm and change the theme
+    function triggerAlarm() {
+      // Play the alarm sound
+      alarmSound.play();
+
+      // Change theme to red and blue
+      document.body.style.backgroundColor = 'red';
+      document.getElementById('sos-list').style.backgroundColor = 'blue';
+      document.body.style.color = 'white';
+
+      // Flashing effect for the theme change
+      let flashing = true;
+      setInterval(() => {
+        if (flashing) {
+          document.body.style.backgroundColor = 'blue';
+          document.getElementById('sos-list').style.backgroundColor = 'red';
+        } else {
+          document.body.style.backgroundColor = 'red';
+          document.getElementById('sos-list').style.backgroundColor = 'blue';
+        }
+        flashing = !flashing;
+      }, 1000);
+    }
+
+    // Establish a Socket.IO connection
+    var socket = io();
+
+    // Receive the initial list of alerts from the server
+    socket.on('initialAlerts', (alerts) => {
+      alerts.forEach((alert, index) => {
+        addMarker(alert.latitude, alert.longitude, index);
+        addToAlertList(alert, index);
+      });
+    });
+
+    // Receive new SOS alerts in real-time
+    socket.on('newAlert', (newAlert) => {
+      var index = markers.length;
+      addMarker(newAlert.latitude, newAlert.longitude, index);
+      addToAlertList(newAlert, index);
+      triggerAlarm();  // Trigger the alarm and theme change on new SOS
+    });
+  </script>
+</body>
+</html>
