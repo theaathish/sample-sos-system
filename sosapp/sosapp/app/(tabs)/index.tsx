@@ -23,7 +23,7 @@ export default function App() {
   const sendSOS = async () => {
     if (location) {
       try {
-        await axios.post('http://192.168.12.153:3000/sos', {  // Updated IP address
+        await axios.post('https://sample-sos-system.onrender.com/sos', {  // Updated IP address
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           deviceInfo: {
